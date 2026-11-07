@@ -1,0 +1,15 @@
+# Single-package repo: this file only holds pnpm settings.
+packages:
+  - "."
+
+# 24h supply-chain guard: skip package versions published less than a day ago (minutes).
+minimumReleaseAge: 1440
+
+overrides:
+  rolldown: 1.2.1
+  # Patched versions of vulnerable transitive dependencies from the wallet libraries.
+  ws@>=8 <8.21.0: ^8.21.0
+  decode-uri-component@<0.5.1: ^0.5.1
+  zod@<4.6.6: ^4.6.6
+  uuid@<11.1.1: ^11.1.1
+  minimatch@>=7 <11.0.1: ^11.0.1

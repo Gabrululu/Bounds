@@ -1,0 +1,10 @@
+project_id = "bounds"
+
+# Both functions do their own auth: the anon key is public, so a Supabase JWT proves nothing here.
+# decide and episode/upload require x-bounds-secret. episode/verify is public but only accepts
+# root hashes already in the episodes table.
+[functions.decide]
+verify_jwt = false
+
+[functions.episode]
+verify_jwt = false
