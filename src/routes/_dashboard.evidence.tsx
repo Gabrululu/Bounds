@@ -46,7 +46,7 @@ export const Route = createFileRoute("/_dashboard/evidence")({
         content: "Prepare EU Machinery Regulation 2023/1230 evidence from on-chain and 0G records.",
       },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Evidence,

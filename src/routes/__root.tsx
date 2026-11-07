@@ -13,6 +13,10 @@ import { type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
 
+// Social crawlers need an absolute URL. Change this if the production domain changes.
+const OG_IMAGE = "https://bounds-bot.vercel.app/og-image.jpg";
+const OG_IMAGE_ALT = "Bounds: a robot arm working inside a marked, authorized zone.";
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -88,7 +92,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Authorize robots inside bounded zones and export EU Machinery Regulation evidence.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "Bounds" },
+      { property: "og:image", content: OG_IMAGE },
+      { property: "og:image:type", content: "image/jpeg" },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:alt", content: OG_IMAGE_ALT },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: OG_IMAGE },
+      { name: "twitter:image:alt", content: OG_IMAGE_ALT },
     ],
     links: [
       {

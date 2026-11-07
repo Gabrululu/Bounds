@@ -74,7 +74,7 @@ export const Route = createFileRoute("/_dashboard/robots/$robotId")({
         content: "Live position, decisions, permissions and episodes for a licensed robot.",
       },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: RobotDetail,
