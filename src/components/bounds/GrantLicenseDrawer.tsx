@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Loader2 } from "lucide-react";
+import { isAddress } from "viem";
 import {
   Sheet,
   SheetContent,
@@ -43,6 +44,7 @@ export function GrantLicenseDrawer({
 }) {
   const zones = useQuery({ queryKey: ["zones"], queryFn: listZones });
   const [ens, setEns] = useState("robot-08");
+  const [robot, setRobot] = useState("");
   const [zoneId, setZoneId] = useState("cell-a");
   const [duration, setDuration] = useState<1 | 8 | 24>(8);
   const [perms, setPerms] = useState<Permission[]>(["move"]);
@@ -51,6 +53,7 @@ export function GrantLicenseDrawer({
   const { ensParent } = useSettings();
   const zone = zones.data?.find((z) => z.id === zoneId);
   const labelValid = /^[a-z0-9-]+$/.test(ens);
+  const robotValid = isAddress(robot.trim());
   const fullEns = ensParent ? `${ens}.${ensParent}` : ens;
   const txHash = m.data?.tx ?? tx?.hash;
   const pendingText =
@@ -107,7 +110,13 @@ export function GrantLicenseDrawer({
             className="mt-6 space-y-6 px-4 pb-6"
             onSubmit={(e) => {
               e.preventDefault();
-              m.mutate({ ens: fullEns, zoneId, durationHours: duration, permissions: perms });
+              m.mutate({
+                ens: fullEns,
+                robot: robot.trim(),
+                zoneId,
+                durationHours: duration,
+                permissions: perms,
+              });
             }}
           >
             <div className="space-y-2">
@@ -126,6 +135,22 @@ export function GrantLicenseDrawer({
                   Set the parent ENS name in Settings first.
                 </p>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="robot-address">Robot address</Label>
+              <Input
+                id="robot-address"
+                value={robot}
+                onChange={(e) => setRobot(e.target.value)}
+                className="font-mono"
+                placeholder="0x…"
+                spellCheck={false}
+                aria-invalid={robot !== "" && !robotValid}
+              />
+              <p className="text-xs text-muted-foreground">
+                The wallet that will hold this license onchain.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -238,7 +263,10 @@ export function GrantLicenseDrawer({
 
             <div className="flex flex-col [&>button]:w-full">
               <WalletGate>
-                <Button type="submit" disabled={!perms.length || !labelValid || !ensParent}>
+                <Button
+                  type="submit"
+                  disabled={!perms.length || !labelValid || !robotValid || !ensParent}
+                >
                   Sign & grant license
                 </Button>
               </WalletGate>

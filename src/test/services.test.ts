@@ -1,7 +1,13 @@
 import { labelhash } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { scanRange } from "@/services/chain";
-import { decodeRoles, encodeRoles } from "@/services/guardian";
+import {
+  decodeRoles,
+  encodeRoles,
+  fromBytes32Text,
+  toBytes32Text,
+  type GrantLog,
+} from "@/services/guardian";
 import { deriveStatus, fleet, getZone } from "@/services/robots";
 import { buildEvidenceReport } from "@/services/evidence";
 import { parseLabels, saveSettings } from "@/services/config";
@@ -84,12 +90,26 @@ describe("scanRange", () => {
   });
 });
 
+describe("bytes32 text", () => {
+  it("round-trips reason codes and drops the padding", () => {
+    const value = toBytes32Text("WEATHER_WIND_LIMIT");
+    expect(value).toHaveLength(66);
+    expect(fromBytes32Text(value)).toBe("WEATHER_WIND_LIMIT");
+  });
+});
+
 describe("fleet", () => {
-  it("indexes robots by labelhash", () => {
+  it("merges configured labels with labels discovered from grant logs", async () => {
     saveSettings({ ensParent: "acme.eth", robotLabels: ["robot-07"] });
-    expect(fleet()).toEqual([
+    const guardian = await import("@/services/guardian");
+    const spy = vi
+      .spyOn(guardian, "fetchGrantLogs")
+      .mockResolvedValue([{ label: "robot-07" }, { label: "robot-09" }] as GrantLog[]);
+    expect(await fleet()).toEqual([
       { id: labelhash("robot-07"), label: "robot-07", ens: "robot-07.acme.eth" },
+      { id: labelhash("robot-09"), label: "robot-09", ens: "robot-09.acme.eth" },
     ]);
+    spy.mockRestore();
   });
   it("cleans up pasted labels", () => {
     expect(parseLabels("Robot-1, robot-2\nrobot-1")).toEqual(["robot-1", "robot-2"]);

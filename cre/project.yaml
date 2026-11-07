@@ -1,0 +1,5 @@
+# CRE project settings. Sepolia is the only target: see README.md for how to run the simulation.
+staging-settings:
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: ${SEPOLIA_RPC_URL}

@@ -1,11 +1,11 @@
-// The only module that knows the guardian's ABI shape. If the real ABI differs from the
-// placeholder in src/abi/guardian.ts, adapt this file and nothing else.
-import { keccak256, stringToBytes, type Address, type Hash } from "viem";
+// The only module that knows the guardian's ABI shape. The guardian is the RobotRegistrar contract,
+// and src/abi/guardian.ts is generated from it by contracts/export-abi.mjs.
+import { hexToString, keccak256, stringToBytes, stringToHex, type Address, type Hash } from "viem";
 import { simulateContract, writeContract } from "wagmi/actions";
 import { guardianAbi } from "@/abi/guardian";
 import { sepolia, wagmiConfig } from "@/lib/wagmi";
 import { SEPOLIA_BLOCK_SECONDS, publicClient, scanRange } from "./chain";
-import { getSettings, grantTargetAddress, guardianAddress } from "./config";
+import { getSettings, guardianAddress } from "./config";
 import { DAY } from "./events";
 import type { Permission } from "./types";
 
@@ -25,6 +25,12 @@ export function decodeRoles(bitmap: bigint): Permission[] {
 
 export const zoneIdHash = (zoneId: string): Hash => keccak256(stringToBytes(zoneId));
 
+/** Reason codes and sources are short text stored as bytes32. */
+export const toBytes32Text = (text: string): Hash => stringToHex(text, { size: 32 });
+export const fromBytes32Text = (value: Hash): string => hexToString(value, { size: 32 });
+
+const DASHBOARD_REVOKE = { reason: "OPERATOR_REVOKE", source: "dashboard" };
+
 export interface OnChainLicense {
   zoneHash: Hash;
   /** ms since epoch; 0 when never granted. */
@@ -34,18 +40,19 @@ export interface OnChainLicense {
 }
 
 export async function readLicense(labelhash: Hash): Promise<OnChainLicense> {
-  const [zoneHash, expiry, roles, revoked] = await publicClient.readContract({
+  const [zoneHash, expiry, permissions, revoked] = await publicClient.readContract({
     address: guardianAddress(),
     abi: guardianAbi,
     functionName: "getLicense",
     args: [labelhash],
   });
-  return { zoneHash, expiresAt: Number(expiry) * 1000, roles: decodeRoles(roles), revoked };
+  return { zoneHash, expiresAt: Number(expiry) * 1000, roles: decodeRoles(permissions), revoked };
 }
 
 export async function sendGrant(
   account: Address,
   label: string,
+  robot: Address,
   zoneId: string,
   expirySeconds: bigint,
   permissions: Permission[],
@@ -54,10 +61,10 @@ export async function sendGrant(
   const { request } = await simulateContract(wagmiConfig, {
     account,
     chainId: sepolia.id,
-    address: grantTargetAddress(),
+    address: guardianAddress(),
     abi: guardianAbi,
     functionName: "grantLicense",
-    args: [label, zoneIdHash(zoneId), expirySeconds, encodeRoles(permissions)],
+    args: [label, robot, zoneIdHash(zoneId), expirySeconds, encodeRoles(permissions)],
   });
   return writeContract(wagmiConfig, request);
 }
@@ -69,13 +76,14 @@ export async function sendRevoke(account: Address, label: string): Promise<Hash>
     address: guardianAddress(),
     abi: guardianAbi,
     functionName: "revokeLicense",
-    args: [label],
+    args: [label, toBytes32Text(DASHBOARD_REVOKE.reason), toBytes32Text(DASHBOARD_REVOKE.source)],
   });
   return writeContract(wagmiConfig, request);
 }
 
 export interface GrantLog {
   labelhash: Hash;
+  label: string;
   zoneHash: Hash;
   expiresAt: number;
   roles: Permission[];
@@ -88,12 +96,16 @@ export interface RevokeLog {
   id: string;
   labelhash: Hash;
   reason: string;
+  /** Who decided: "open-meteo" for the CRE workflow, "dashboard" for an operator. */
   source: string;
+  /** Contract or wallet that sent the revocation. */
+  caller: Address;
   tx: Hash;
   at: number;
   blockNumber: bigint;
 }
 
+const REVOCATION_POLL_MS = 15_000;
 const DEFAULT_LOOKBACK_BLOCKS = BigInt(Math.floor((30 * DAY) / 1000 / SEPOLIA_BLOCK_SECONDS));
 
 /** Whether scans may miss history because no deploy block is configured. */
@@ -152,7 +164,8 @@ export const fetchGrantLogs = incrementalScan<GrantLog>(async (address, fromBloc
   });
   return Promise.all(
     logs.map(async (log) => ({
-      labelhash: log.args.label!,
+      labelhash: log.args.labelhash!,
+      label: log.args.label!,
       zoneHash: log.args.zoneId!,
       expiresAt: Number(log.args.expiry!) * 1000,
       roles: decodeRoles(log.args.rolesBitmap!),
@@ -174,9 +187,10 @@ export const fetchRevokeLogs = incrementalScan<RevokeLog>(async (address, fromBl
   return Promise.all(
     logs.map(async (log) => ({
       id: `${log.transactionHash}-${log.logIndex}`,
-      labelhash: log.args.label!,
-      reason: log.args.reason ?? "",
-      source: log.args.source ?? "",
+      labelhash: log.args.labelhash!,
+      reason: fromBytes32Text(log.args.reasonCode!),
+      source: fromBytes32Text(log.args.source!),
+      caller: log.args.caller!,
       tx: log.transactionHash,
       at: await blockTimestamp(log.blockNumber),
       blockNumber: log.blockNumber,
@@ -184,19 +198,25 @@ export const fetchRevokeLogs = incrementalScan<RevokeLog>(async (address, fromBl
   );
 });
 
-/** Live subscription. Returns the unsubscribe function; a no-op when no guardian is configured. */
+/**
+ * Calls onEvent when a new revocation appears. Polls the log scan rather than using RPC filters,
+ * because public Sepolia endpoints drop filters between calls. A no-op when no guardian is set.
+ */
 export function watchRevocations(onEvent: () => void, onError: (e: Error) => void): () => void {
-  let address: Address;
   try {
-    address = guardianAddress();
+    guardianAddress();
   } catch {
     return () => {};
   }
-  return publicClient.watchContractEvent({
-    address,
-    abi: guardianAbi,
-    eventName: "LicenseRevoked",
-    onLogs: onEvent,
-    onError,
-  });
+  let known: number | null = null;
+  const check = () =>
+    fetchRevokeLogs()
+      .then((logs) => {
+        if (known !== null && logs.length !== known) onEvent();
+        known = logs.length;
+      })
+      .catch(onError);
+  void check();
+  const timer = setInterval(check, REVOCATION_POLL_MS);
+  return () => clearInterval(timer);
 }

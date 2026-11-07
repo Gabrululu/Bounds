@@ -16,11 +16,9 @@ export class ConfigError extends Error {}
 
 export interface Settings {
   guardianAddress: string;
-  /** Optional. grantLicense goes here when set, otherwise to the guardian. */
-  registrarAddress: string;
   /** Parent ENS name, e.g. acme.eth. Robots are subnames of it. */
   ensParent: string;
-  /** Subname labels of the fleet. A labelhash can't be reversed, so labels must be known. */
+  /** Extra labels to watch. Labels with an onchain grant are discovered from LicenseGranted logs. */
   robotLabels: string[];
   /** Block the guardian was deployed at. Without it, log scans cover the last 30 days only. */
   deployBlock: string;
@@ -31,7 +29,6 @@ const env = import.meta.env;
 
 const defaults = (): Settings => ({
   guardianAddress: env["VITE_GUARDIAN_ADDRESS"] ?? "",
-  registrarAddress: env["VITE_REGISTRAR_ADDRESS"] ?? "",
   ensParent: env["VITE_ENS_PARENT"] ?? "",
   robotLabels: parseLabels(env["VITE_ROBOT_LABELS"] ?? ""),
   deployBlock: env["VITE_GUARDIAN_DEPLOY_BLOCK"] ?? "",
@@ -78,12 +75,6 @@ export function guardianAddress(): Address {
   if (!a || !isAddress(a))
     throw new ConfigError("Guardian address is not set. Add it in Settings.");
   return a;
-}
-
-/** grantLicense target: registrar when configured, otherwise the guardian. */
-export function grantTargetAddress(): Address {
-  const r = getSettings().registrarAddress;
-  return r && isAddress(r) ? r : guardianAddress();
 }
 
 export const SUPABASE_URL: string = env["VITE_SUPABASE_URL"] ?? "";

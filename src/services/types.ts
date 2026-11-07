@@ -60,10 +60,12 @@ export interface Episode {
   durationSec: number;
   decisions: number;
   rootHash: string;
-  /** Transaction on the 0G chain that anchored the upload. */
+  /** Transaction on the 0G chain that submitted the file to 0G Storage. */
   txHash: string | null;
   /** 0G Storage sequence number. The storage explorer links files by this, not by root hash. */
   txSeq: number | null;
+  /** Transaction that recorded the root hash in EvidenceAnchor. Null when not anchored. */
+  anchorTx: string | null;
 }
 
 export interface Alert {
@@ -100,10 +102,11 @@ export interface CreRun {
 export interface RevocationEvent {
   id: string;
   robotId: string;
-  /** Resolved from the configured robot labels; null if this labelhash is not in the fleet. */
+  /** Resolved from grant logs and configured labels; null if this labelhash is not known. */
   ens: string | null;
   reason: string;
   source: string;
+  caller: string;
   tx: string;
   at: number;
 }
@@ -164,6 +167,8 @@ export interface EvidenceReport {
 
 export interface GrantInput {
   ens: string;
+  /** Address of the robot that will hold the license. */
+  robot: string;
   zoneId: string;
   durationHours: 1 | 8 | 24;
   permissions: Permission[];

@@ -16,20 +16,20 @@ import cageImg from "@/assets/zone-cage.jpg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Bounds — Proven robot safety for the EU Machinery Regulation" },
+      { title: "Bounds — Revocable robot licenses and safety evidence" },
       {
         name: "description",
         content:
-          "License robots to bounded zones, gate every move with verified AI decisions, and export 2023/1230 compliance evidence.",
+          "License robots to bounded zones with revocable onchain licenses, record verifiable AI decisions, and prepare evidence for EU Machinery Regulation 2023/1230.",
       },
       {
         property: "og:title",
-        content: "Bounds — Proven robot safety for the EU Machinery Regulation",
+        content: "Bounds — Revocable robot licenses and safety evidence",
       },
       {
         property: "og:description",
         content:
-          "License robots to bounded zones, gate every move with verified AI decisions, and export 2023/1230 compliance evidence.",
+          "License robots to bounded zones with revocable onchain licenses, record verifiable AI decisions, and prepare evidence for EU Machinery Regulation 2023/1230.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -39,11 +39,11 @@ export const Route = createFileRoute("/")({
 });
 
 const STATS = [
-  ["<1s", "Revocation to safe-stop"],
-  ["100%", "Decisions TEE-verified"],
-  ["365d", "Decision log retention"],
+  ["ENSv2", "Licenses as subnames"],
+  ["Expiry", "Leases end on their own"],
+  ["STOP", "When a TEE check fails"],
   ["0", "Invented decisions"],
-  ["5/5", "Regulation sections mapped"],
+  ["5", "Regulation sections per report"],
 ];
 
 const STEPS = [
@@ -57,13 +57,13 @@ const STEPS = [
     icon: ShieldCheck,
     n: "02",
     title: "Decide",
-    text: "Every motion is gated by a model decision computed in a TEE on 0G. No answer means safe-stop — never a guess.",
+    text: "The robot's runtime asks 0G Compute for a decision on each frame. No answer or a failed TEE check returns STOP — never a guess.",
   },
   {
     icon: FileCheck2,
     n: "03",
     title: "Prove",
-    text: "Hashes, transactions and episode roots roll up into an evidence report your notified body can verify.",
+    text: "Hashes, transactions and episode roots roll up into an evidence report anyone can check against the chain and 0G Storage.",
   },
 ];
 
@@ -126,14 +126,14 @@ function Landing() {
             <h1 className="font-display text-[clamp(2.6rem,7vw,6.5rem)] uppercase leading-[0.9] text-on-image">
               From assumed
               <br />
-              safety to proven
+              safety to verifiable
               <br />
-              compliance
+              evidence
             </h1>
             <div className="space-y-5 text-on-image">
               <p className="text-base leading-relaxed">
-                Bounds licenses robots to operate only inside bounded zones, gates every move with
-                verified AI decisions, and turns it all into evidence for the EU Machinery
+                Bounds gives robots revocable licenses for bounded zones, records verifiable AI
+                decisions, and turns them into evidence that helps you prepare for the EU Machinery
                 Regulation.
               </p>
               <Button variant="hero" size="xl" asChild>
@@ -146,17 +146,16 @@ function Landing() {
         </div>
       </section>
 
-      {/* Trusted strip */}
+      {/* Stack strip */}
       <section className="mx-auto max-w-[1440px] px-6 py-14 text-center">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-          Built for integrators who can't afford to guess
+          Built with
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-x-14 gap-y-4 font-display text-xl uppercase text-muted-foreground/70">
-          <span>Acme Robotics</span>
-          <span>Nordwerk</span>
-          <span>Kinetik</span>
-          <span>Celula</span>
-          <span>Halden AMR</span>
+          <span>ENSv2</span>
+          <span>Chainlink CRE</span>
+          <span>0G Compute</span>
+          <span>0G Storage</span>
         </div>
       </section>
 
@@ -164,7 +163,7 @@ function Landing() {
       <section id="problem" className="bg-blush px-6 py-24">
         <div className="mx-auto max-w-4xl text-center">
           <h2 className="font-display text-[clamp(2rem,5vw,4rem)] uppercase leading-[0.95]">
-            Your fleet grew 10x.
+            Your robots got smarter.
             <br />
             Your audit trail didn't.
           </h2>
@@ -184,7 +183,7 @@ function Landing() {
         <div className="mx-auto mt-4 grid max-w-5xl gap-10 text-center md:grid-cols-3">
           {[
             [
-              "17,000 decisions / robot / day",
+              "Every safety decision",
               "Each one needs to be explainable, attributable and retained.",
             ],
             ["1 year minimum retention", "Safety-decision logs must survive audits and incidents."],
@@ -242,8 +241,8 @@ function Landing() {
             <div>
               <p className="font-display text-xl uppercase">One-click revoke</p>
               <p className="mt-2 text-sm opacity-75">
-                An on-chain revocation reaches the robot within one control cycle and engages
-                safe-stop.
+                Revoke onchain from the dashboard. A robot that reads the change stops. An offline
+                robot relies on a short lease and safe-stop.
               </p>
             </div>
           </div>
@@ -252,7 +251,8 @@ function Landing() {
             <div>
               <p className="font-display text-xl uppercase">External triggers</p>
               <p className="mt-2 text-sm opacity-75">
-                Weather, zone sensors and sanctions lists can revoke licenses automatically.
+                A Chainlink CRE workflow can revoke a license when live weather at the robot's zone
+                passes a limit.
               </p>
             </div>
           </div>
@@ -271,7 +271,7 @@ function Landing() {
             </h2>
             <p className="mt-6 max-w-md text-muted-foreground">
               Pick a robot and a date range. Bounds assembles source hashes and transactions for
-              every requirement and flags what's missing.
+              five sections of the regulation and flags what's missing.
             </p>
             <p className="mt-6 text-xs text-muted-foreground">
               Supports evidence preparation. Not legal advice or certification.
@@ -289,8 +289,8 @@ function Landing() {
                   </span>
                   <span className="font-medium">{s}</span>
                 </span>
-                <span className="rounded-full bg-success/12 px-3 py-1 text-xs font-medium text-success">
-                  Evidence present
+                <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                  In every report
                 </span>
               </li>
             ))}
@@ -302,7 +302,7 @@ function Landing() {
       <section className="mx-auto max-w-[1440px] px-6 py-28 text-center">
         <Radar className="mx-auto size-10 text-primary-text" />
         <h2 className="mx-auto mt-6 max-w-4xl font-display text-[clamp(2.2rem,6vw,5rem)] uppercase leading-[0.92]">
-          Ready to prove <span className="text-primary-text">every move?</span>
+          Ready to prove <span className="text-primary-text">the limits?</span>
         </h2>
         <Button variant="hero" size="xl" className="mt-10" asChild>
           <Link to="/fleet">

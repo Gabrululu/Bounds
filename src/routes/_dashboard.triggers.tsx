@@ -220,8 +220,12 @@ function Triggers() {
                   </p>
                 </div>
                 <div className="text-xs">
-                  <span className="text-muted-foreground">Source </span>
-                  <CopyValue value={e.source} head={6} tail={4} />
+                  <p className="truncate">
+                    <span className="text-muted-foreground">Source </span>
+                    {e.source || "unknown"}
+                  </p>
+                  <span className="text-muted-foreground">Sender </span>
+                  <CopyValue value={e.caller} head={6} tail={4} />
                 </div>
                 <div className="text-right">
                   <TxLink hash={e.tx} />

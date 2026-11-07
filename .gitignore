@@ -22,6 +22,18 @@ supabase/.env
 supabase/.temp
 supabase/.branches
 
+# Foundry
+contracts/out
+contracts/cache
+contracts/broadcast
+deployments/rehearsal*.json
+
+# CRE
+cre/**/.env
+cre/**/node_modules
+cre/**/wasm
+cre/**/.cre_build_tmp*
+
 # Keys and certificates
 *.pem
 *.key

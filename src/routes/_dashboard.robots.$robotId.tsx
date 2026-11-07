@@ -201,8 +201,8 @@ function RobotDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Revoke license for {r.ens}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This submits an on-chain revocation. The robot will engage safe-stop within one
-              control cycle and cannot resume until a new license is granted.
+              This submits an on-chain revocation. A robot that reads the change stops. An offline
+              robot stops when it can't confirm its license or when its lease ends.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -222,7 +222,7 @@ function RobotDetail() {
                     {tx?.stage === "pending" ? "Confirming…" : "Check your wallet…"}
                   </>
                 ) : (
-                  "Revoke & safe-stop"
+                  "Revoke license"
                 )}
               </AlertDialogAction>
             </WalletGate>
@@ -395,6 +395,16 @@ function EpisodeRow({ e }: { e: Episode }) {
               className="text-primary-text underline-offset-4 hover:underline"
             >
               0G tx
+            </a>
+          )}
+          {e.anchorTx && (
+            <a
+              href={`${ZG_CHAIN_EXPLORER}/tx/${e.anchorTx}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary-text underline-offset-4 hover:underline"
+            >
+              Anchor tx
             </a>
           )}
         </span>

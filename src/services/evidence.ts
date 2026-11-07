@@ -163,7 +163,8 @@ export async function buildEvidenceReport(
         description: `${decisions.data.length.toLocaleString()} stored decisions and ${episodes.data.length} episode root hashes in this period.`,
         sources: episodes.data.flatMap((e) => [
           rootSource(e),
-          ...(e.txHash ? [zgTxSource("0G anchor tx", e.txHash)] : []),
+          ...(e.txHash ? [zgTxSource("0G Storage upload tx", e.txHash)] : []),
+          ...(e.anchorTx ? [zgTxSource("EvidenceAnchor tx", e.anchorTx)] : []),
         ]),
         ...(retention ? { retention } : {}),
       },

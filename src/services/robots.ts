@@ -1,4 +1,4 @@
-import { labelhash, type Hash } from "viem";
+import { isAddress, labelhash, type Address, type Hash } from "viem";
 import { normalize } from "viem/ens";
 import { getAccount } from "wagmi/actions";
 import { wagmiConfig } from "@/lib/wagmi";
@@ -12,14 +12,7 @@ import type {
   Zone,
 } from "./types";
 import { publicClient } from "./chain";
-import {
-  ConfigError,
-  ENS_TEXT_KEYS,
-  getExportCount,
-  getSettings,
-  guardianAddress,
-  saveSettings,
-} from "./config";
+import { ConfigError, ENS_TEXT_KEYS, getExportCount, getSettings, guardianAddress } from "./config";
 import { countDecisionsSince, latestDecision, listRecentAlertDecisions } from "./decisions";
 import { HOUR, MIN, emit } from "./events";
 import {
@@ -62,10 +55,13 @@ interface FleetEntry {
   ens: string;
 }
 
-export function fleet(): FleetEntry[] {
+/** Every label with an onchain grant, plus any label added in Settings. */
+export async function fleet(): Promise<FleetEntry[]> {
   const { ensParent, robotLabels } = getSettings();
   if (!ensParent) return [];
-  return robotLabels.map((label) => ({
+  const grants = await fetchGrantLogs();
+  const labels = new Set([...robotLabels, ...grants.map((g) => g.label)]);
+  return [...labels].map((label) => ({
     id: labelhash(label),
     label,
     ens: `${label}.${ensParent}`,
@@ -141,12 +137,12 @@ export async function listRobots(): Promise<Robot[]> {
   guardianAddress();
   if (!getSettings().ensParent)
     throw new ConfigError("Parent ENS name is not set. Add it in Settings.");
-  return Promise.all(fleet().map(loadRobot));
+  return Promise.all((await fleet()).map(loadRobot));
 }
 
 export async function getRobot(id: string): Promise<Robot | null> {
   guardianAddress();
-  const entry = fleet().find((e) => e.id === id);
+  const entry = (await fleet()).find((e) => e.id === id);
   return entry ? loadRobot(entry) : null;
 }
 
@@ -189,7 +185,7 @@ export async function listAlerts(robotId: string): Promise<Alert[]> {
       robotId,
       at: r.at,
       severity: "critical",
-      message: `License revoked by ${r.source.slice(0, 10)}…: ${r.reason || "no reason given"}. Tx ${r.tx.slice(0, 10)}…`,
+      message: `License revoked by ${r.source}: ${r.reason || "no reason given"}. Tx ${r.tx.slice(0, 10)}…`,
     });
   }
   const robot = await getRobot(robotId);
@@ -247,7 +243,7 @@ function connectedAccount() {
 }
 
 export async function revokeLicense(robotId: string): Promise<{ tx: string }> {
-  const entry = fleet().find((e) => e.id === robotId);
+  const entry = (await fleet()).find((e) => e.id === robotId);
   if (!entry) throw new Error("Robot not found");
   const account = connectedAccount();
   const tx = await runTx("revoke", () => sendRevoke(account, entry.label));
@@ -256,7 +252,7 @@ export async function revokeLicense(robotId: string): Promise<{ tx: string }> {
 }
 
 export async function grantLicense(input: GrantInput): Promise<{ tx: string; robotId: string }> {
-  const { ensParent, robotLabels } = getSettings();
+  const { ensParent } = getSettings();
   const suffix = `.${ensParent}`;
   if (!ensParent || !input.ens.endsWith(suffix))
     throw new Error(
@@ -265,12 +261,12 @@ export async function grantLicense(input: GrantInput): Promise<{ tx: string; rob
   const label = input.ens.slice(0, -suffix.length);
   if (!/^[a-z0-9-]+$/.test(label))
     throw new Error("Robot label may only contain a-z, 0-9 and hyphens.");
+  if (!isAddress(input.robot)) throw new Error("Robot address is not a valid address.");
   const account = connectedAccount();
   const expiry = BigInt(Math.floor((Date.now() + input.durationHours * HOUR) / 1000));
   const tx = await runTx("grant", () =>
-    sendGrant(account, label, input.zoneId, expiry, input.permissions),
+    sendGrant(account, label, input.robot as Address, input.zoneId, expiry, input.permissions),
   );
-  if (!robotLabels.includes(label)) saveSettings({ robotLabels: [...robotLabels, label] });
   emit();
   return { tx, robotId: labelhash(label) };
 }

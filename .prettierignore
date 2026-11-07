@@ -4,3 +4,10 @@ dist
 .vinxi
 pnpm-lock.yaml
 routeTree.gen.ts
+contracts/lib
+contracts/out
+contracts/cache
+contracts/broadcast
+cre
+abi
+deployments

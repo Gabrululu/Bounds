@@ -1,0 +1,16 @@
+{
+  "schedule": "0 */15 * * * *",
+  "chainSelectorName": "ethereum-testnet-sepolia",
+  "robotRegistrar": "0x0000000000000000000000000000000000000000",
+  "boundsCREConsumer": "0x0000000000000000000000000000000000000000",
+  "writeGasLimit": "700000",
+  "weatherApiUrl": "https://api.open-meteo.com/v1/forecast",
+  "limits": { "windKmh": 50, "rainMmPerHour": 10 },
+  "robots": ["robot-01", "robot-02", "robot-03"],
+  "zones": [
+    { "name": "cell-a", "latitude": 19.076, "longitude": 72.8777 },
+    { "name": "cell-b", "latitude": 19.076, "longitude": 72.8777 },
+    { "name": "dock-1", "latitude": 18.9498, "longitude": 72.8426 },
+    { "name": "wh-3", "latitude": 19.033, "longitude": 73.0297 }
+  ]
+}

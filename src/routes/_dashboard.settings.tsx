@@ -31,16 +31,9 @@ export const Route = createFileRoute("/_dashboard/settings")({
 const LABEL = /^[a-z0-9-]+$/;
 const ENS_PARENT = /^([a-z0-9-]+\.)+eth$/;
 
-function validate(form: {
-  guardian: string;
-  registrar: string;
-  parent: string;
-  labels: string;
-  deployBlock: string;
-}) {
+function validate(form: { guardian: string; parent: string; labels: string; deployBlock: string }) {
   const errors: Record<string, string> = {};
   if (form.guardian && !isAddress(form.guardian)) errors["guardian"] = "Not a valid address.";
-  if (form.registrar && !isAddress(form.registrar)) errors["registrar"] = "Not a valid address.";
   if (form.parent && !ENS_PARENT.test(form.parent))
     errors["parent"] = "Use a name such as acme.eth.";
   if (form.deployBlock && !/^\d+$/.test(form.deployBlock))
@@ -107,7 +100,6 @@ function ConfigRow({ label, ok, detail }: { label: string; ok: boolean; detail: 
 function SettingsPage() {
   const settings = useSettings();
   const [guardian, setGuardian] = useState(settings.guardianAddress);
-  const [registrar, setRegistrar] = useState(settings.registrarAddress);
   const [parent, setParent] = useState(settings.ensParent);
   const [labels, setLabels] = useState(settings.robotLabels.join("\n"));
   const [deployBlock, setDeployBlock] = useState(settings.deployBlock);
@@ -118,7 +110,6 @@ function SettingsPage() {
     e.preventDefault();
     const form = {
       guardian: guardian.trim(),
-      registrar: registrar.trim(),
       parent: parent.trim().toLowerCase(),
       labels,
       deployBlock: deployBlock.trim(),
@@ -129,15 +120,11 @@ function SettingsPage() {
     setSaving(true);
     saveSettings({
       guardianAddress: form.guardian,
-      registrarAddress: form.registrar,
       ensParent: form.parent,
       robotLabels: parseLabels(form.labels),
       deployBlock: form.deployBlock,
     });
-    await Promise.all([
-      warnIfNoContract("Guardian", form.guardian),
-      warnIfNoContract("Registrar", form.registrar),
-    ]);
+    await warnIfNoContract("Guardian", form.guardian);
     setSaving(false);
     toast.success("Settings saved in this browser");
   };
@@ -156,28 +143,13 @@ function SettingsPage() {
           <Field
             id="guardian"
             label="Guardian contract"
-            hint="Sepolia address. Default: VITE_GUARDIAN_ADDRESS."
+            hint="RobotRegistrar address on Sepolia. Default: VITE_GUARDIAN_ADDRESS."
             error={errors["guardian"]}
           >
             <Input
               id="guardian"
               value={guardian}
               onChange={(e) => setGuardian(e.target.value)}
-              placeholder="0x…"
-              className="font-mono"
-              spellCheck={false}
-            />
-          </Field>
-          <Field
-            id="registrar"
-            label="Registrar contract (optional)"
-            hint="If set, grantLicense is sent here instead of the guardian."
-            error={errors["registrar"]}
-          >
-            <Input
-              id="registrar"
-              value={registrar}
-              onChange={(e) => setRegistrar(e.target.value)}
               placeholder="0x…"
               className="font-mono"
               spellCheck={false}
@@ -214,8 +186,8 @@ function SettingsPage() {
           </Field>
           <Field
             id="labels"
-            label="Robot labels"
-            hint="One per line, for example robot-07. Granting a license adds the label automatically."
+            label="Extra robot labels"
+            hint="Optional, one per line. Robots with a license onchain appear without being listed here."
             error={errors["labels"]}
           >
             <Textarea

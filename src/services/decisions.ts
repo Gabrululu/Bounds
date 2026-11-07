@@ -10,7 +10,7 @@ import type {
 } from "./types";
 import { getSettings } from "./config";
 import { HOUR } from "./events";
-import { fetchRevokeLogs } from "./guardian";
+import { fetchGrantLogs, fetchRevokeLogs } from "./guardian";
 import { getSupabase, requireSupabase } from "./supabase";
 
 interface DecisionRow {
@@ -165,12 +165,15 @@ interface EpisodeRow {
   root_hash: string;
   tx_hash: string | null;
   tx_seq: number | null;
+  anchor_tx: string | null;
 }
 
 export async function listEpisodes(robotId: string): Promise<Episode[]> {
   const { data, error } = await requireSupabase()
     .from("episodes")
-    .select("id,labelhash,started_at,duration_sec,decision_count,root_hash,tx_hash,tx_seq")
+    .select(
+      "id,labelhash,started_at,duration_sec,decision_count,root_hash,tx_hash,tx_seq,anchor_tx",
+    )
     .eq("labelhash", robotId)
     .order("started_at", { ascending: false })
     .limit(200);
@@ -184,6 +187,7 @@ export async function listEpisodes(robotId: string): Promise<Episode[]> {
     rootHash: row.root_hash,
     txHash: row.tx_hash,
     txSeq: row.tx_seq,
+    anchorTx: row.anchor_tx,
   }));
 }
 
@@ -268,14 +272,15 @@ export async function listWorkflows(): Promise<TriggerWorkflow[]> {
   }));
 }
 
-function ensByLabelhash(): Map<string, string> {
+async function ensByLabelhash(): Promise<Map<string, string>> {
   const { ensParent, robotLabels } = getSettings();
-  return new Map(robotLabels.map((label) => [labelhash(label) as string, `${label}.${ensParent}`]));
+  const grants = await fetchGrantLogs();
+  const labels = [...robotLabels, ...grants.map((g) => g.label)];
+  return new Map(labels.map((label) => [labelhash(label) as string, `${label}.${ensParent}`]));
 }
 
 export async function listRevocationEvents(): Promise<RevocationEvent[]> {
-  const names = ensByLabelhash();
-  const logs = await fetchRevokeLogs();
+  const [names, logs] = await Promise.all([ensByLabelhash(), fetchRevokeLogs()]);
   return logs
     .map((log) => ({
       id: log.id,
@@ -283,6 +288,7 @@ export async function listRevocationEvents(): Promise<RevocationEvent[]> {
       ens: names.get(log.labelhash) ?? null,
       reason: log.reason,
       source: log.source,
+      caller: log.caller,
       tx: log.tx,
       at: log.at,
     }))

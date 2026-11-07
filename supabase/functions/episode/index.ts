@@ -1,15 +1,23 @@
 // POST /functions/v1/episode/upload  Headers: x-bounds-secret. Body: episode JSON.
 // POST /functions/v1/episode/verify  Public. Body: { rootHash }. Only known root hashes.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { labelhash } from "npm:viem@2";
+import { keccak256, labelhash, stringToBytes } from "npm:viem@2";
 import { Indexer, MemData } from "npm:@0gfoundation/0g-storage-ts-sdk@1.2.13";
-import { JsonRpcProvider, Wallet } from "npm:ethers@6.13.1";
-import { ROOT_HASH, parseEpisode, verifyRootHash } from "../_shared/episode-core.ts";
+import { Contract, JsonRpcProvider, Wallet } from "npm:ethers@6.13.1";
+import {
+  type EpisodeInput,
+  ROOT_HASH,
+  parseEpisode,
+  verifyRootHash,
+} from "../_shared/episode-core.ts";
 import { corsHeaders, json, readJson, secretMatches } from "../_shared/http.ts";
 
 // Edge Functions allow about 2s of CPU per request. Merkle hashing costs roughly 100 ms per MB on
 // top of loading the SDK, so episodes are capped well below where that budget becomes a problem.
 const MAX_EPISODE_BYTES = 1024 * 1024;
+const ANCHOR_ABI = [
+  "function anchorEpisode(bytes32 labelhash, bytes32 zgRootHash, bytes32 decisionsHash, uint64 timestamp)",
+];
 
 const env = (name: string) => Deno.env.get(name);
 const RPC = () => env("ZEROG_RPC") ?? "https://evmrpc-testnet.0g.ai";
@@ -19,6 +27,33 @@ const database = () =>
   createClient(env("SUPABASE_URL")!, env("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false },
   });
+
+/**
+ * Records the root hash in EvidenceAnchor, if one is configured. A failure here does not undo the
+ * upload: the file is stored either way, so the response reports the anchor as missing instead.
+ */
+async function anchorEpisode(
+  signer: Wallet,
+  episode: EpisodeInput,
+  rootHash: string,
+): Promise<{ tx: string | null; error?: string }> {
+  const address = env("EVIDENCE_ANCHOR_ADDRESS");
+  if (!address) return { tx: null };
+  try {
+    const anchor = new Contract(address, ANCHOR_ABI, signer);
+    const sent = await anchor.anchorEpisode(
+      labelhash(episode.robotLabel),
+      rootHash,
+      keccak256(stringToBytes(JSON.stringify(episode.decisions))),
+      BigInt(Math.floor(Date.parse(episode.startedAt) / 1000)),
+    );
+    const receipt = await sent.wait(1);
+    return { tx: receipt.hash };
+  } catch (error) {
+    console.error("Episode anchor failed", (error as Error).message);
+    return { tx: null, error: "Episode stored, but anchoring its root hash failed." };
+  }
+}
 
 async function upload(request: Request, cors: Record<string, string>): Promise<Response> {
   if (!secretMatches(env("BOUNDS_API_SECRET"), request.headers.get("x-bounds-secret"))) {
@@ -49,6 +84,8 @@ async function upload(request: Request, cors: Record<string, string>): Promise<R
     );
   }
 
+  const anchor = await anchorEpisode(signer, episode, result.rootHash);
+
   const { error: dbError } = await database()
     .from("episodes")
     .insert({
@@ -60,11 +97,19 @@ async function upload(request: Request, cors: Record<string, string>): Promise<R
       root_hash: result.rootHash,
       tx_hash: result.txHash || null,
       tx_seq: result.txSeq ?? null,
+      anchor_tx: anchor.tx,
     });
   if (dbError) console.error("episodes insert failed", dbError.message);
 
   return json(
-    { rootHash: result.rootHash, txHash: result.txHash, txSeq: result.txSeq, stored: !dbError },
+    {
+      rootHash: result.rootHash,
+      txHash: result.txHash,
+      txSeq: result.txSeq,
+      anchorTx: anchor.tx,
+      ...(anchor.error ? { anchorError: anchor.error } : {}),
+      stored: !dbError,
+    },
     200,
     cors,
   );
